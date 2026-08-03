@@ -1,0 +1,13 @@
+{
+  "name": "telegram-crm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram CRM: окремий Netlify-проєкт, що працює через webhook і Supabase, не зачіпаючи існуючий сайт.",
+  "main": "index.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
