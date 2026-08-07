@@ -7,6 +7,7 @@ const { handleClientDeclined } = require('./clientDeclined');
 // Додавання нової кнопки/команди в майбутньому = додати один case тут
 // і один файл у handlers/, без зміни іншої логіки.
 async function routeUpdate(update) {
+  console.log('ВХІДНИЙ UPDATE:', JSON.stringify(update));
   if (update.message && update.message.text) {
     const text = update.message.text.trim().toLowerCase();
 
