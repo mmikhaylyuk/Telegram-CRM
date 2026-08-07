@@ -18,14 +18,14 @@
 function extractField(text, labelPattern) {
   const regex = new RegExp(`${labelPattern}\\s*:\\s*(.+)`, 'iu');
   const match = text.match(regex);
-  return match ? match[1].trim() : null;
+  return match && match[1] ? match[1].trim() : null;
 }
 
 function parseApplicationText(text) {
   if (!text) return null;
 
   const name = extractField(text, "Ім[’ʼ'`]?я");
-  const phoneRaw = extractField(text, 'Контакт|Телефон');
+  const phoneRaw = extractField(text, '(?:Контакт|Телефон)');
   const dates = extractField(text, 'Дати');
   const dogInfo = extractField(text, 'Кличка\\s*/\\s*порода');
   const size = extractField(text, 'Розмір');
