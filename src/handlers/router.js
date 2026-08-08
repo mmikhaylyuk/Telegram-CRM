@@ -2,6 +2,7 @@ const telegramApi = require('../telegram/api');
 const { handleActivateCrm } = require('./activateCrm');
 const { handleClientConfirmed } = require('./clientConfirmed');
 const { handleClientDeclined } = require('./clientDeclined');
+const { handleClientLookup } = require('./clientLookup');
 
 // Єдина точка маршрутизації для всіх типів оновлень Telegram.
 // Додавання нової кнопки/команди в майбутньому = додати один case тут
@@ -14,6 +15,11 @@ async function routeUpdate(update) {
     if (text === '/crm' && update.message.reply_to_message) {
       await handleActivateCrm(update.message);
     }
+
+    if (text.startsWith('/клієнт') || text.startsWith('/client')) {
+      await handleClientLookup(update.message.chat.id, update.message.text);
+    }
+
     return;
   }
 
