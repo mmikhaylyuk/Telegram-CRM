@@ -47,6 +47,7 @@ async function handleClientConfirmed(callbackQuery) {
 
     if (!range) {
       console.error('Google Calendar: не вдалося розпізнати дати', application.id, application.dates);
+      await updateBookingCalendarError(booking.id, `Не вдалося розпізнати дати: "${application.dates}"`);
       return;
     }
 
