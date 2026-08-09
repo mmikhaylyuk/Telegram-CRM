@@ -28,4 +28,16 @@ async function updateBookingGoogleEventId(bookingId, googleEventId) {
   return data;
 }
 
-module.exports = { createBooking, updateBookingGoogleEventId };
+async function updateBookingCalendarError(bookingId, errorText) {
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({ google_calendar_error: errorText })
+    .eq('id', bookingId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+module.exports = { createBooking, updateBookingGoogleEventId, updateBookingCalendarError };
