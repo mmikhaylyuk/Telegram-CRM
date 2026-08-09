@@ -16,4 +16,16 @@ async function createBooking({ clientId, applicationId, dates }) {
   return data;
 }
 
-module.exports = { createBooking };
+async function updateBookingGoogleEventId(bookingId, googleEventId) {
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({ google_event_id: googleEventId })
+    .eq('id', bookingId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+module.exports = { createBooking, updateBookingGoogleEventId };
