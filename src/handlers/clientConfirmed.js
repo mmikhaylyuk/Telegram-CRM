@@ -2,7 +2,9 @@ const telegramApi = require('../telegram/api');
 const { statusKeyboard } = require('../telegram/keyboards');
 const { getApplicationByMessage, updateApplicationStatus } = require('../db/applications');
 const { findOrCreateClient } = require('../db/clients');
-const { createBooking } = require('../db/bookings');
+const { createBooking, updateBookingGoogleEventId } = require('../db/bookings');
+const { parseDatesRange, parseDogInfo } = require('../telegram/parseApplication');
+const { createCalendarEvent } = require('../calendar/googleCalendar');
 
 async function handleClientConfirmed(callbackQuery) {
   const { message, id: callbackQueryId } = callbackQuery;
@@ -23,7 +25,7 @@ async function handleClientConfirmed(callbackQuery) {
     name: application.name,
   });
 
-  await createBooking({
+  const booking = await createBooking({
     clientId: client.id,
     applicationId: application.id,
     dates: application.dates,
@@ -38,6 +40,40 @@ async function handleClientConfirmed(callbackQuery) {
   );
 
   await telegramApi.answerCallbackQuery(callbackQueryId, 'Клієнта підтверджено, бронювання створено ✅');
+
+  // Google Calendar — не критична дія. Якщо впаде, CRM і кнопка вже відпрацювали.
+  try {
+    const range = parseDatesRange(application.dates);
+
+    if (!range) {
+      console.error('Google Calendar: не вдалося розпізнати дати', application.id, application.dates);
+      return;
+    }
+
+    const { dogName, breed } = parseDogInfo(application.dog_info);
+
+    const summary = `🐶 ${dogName || application.dog_info || 'Собака'}${breed ? ' ' + breed : ''} — ${application.name || 'Клієнт'}`;
+    const description =
+      `👤 Клієнт: ${application.name || '—'}\n` +
+      `📞 Телефон: ${application.phone || '—'}\n` +
+      `🐶 Собака: ${dogName || '—'}\n` +
+      `🐕 Порода: ${breed || '—'}\n` +
+      `📅 Бронювання: ${application.dates || '—'}\n` +
+      (application.comment ? `💬 Коментар: ${application.comment}` : '');
+
+    const event = await createCalendarEvent({
+      summary,
+      description,
+      startDate: range.startDate,
+      endDate: range.endDate,
+    });
+
+    if (event && event.id) {
+      await updateBookingGoogleEventId(booking.id, event.id);
+    }
+  } catch (err) {
+    console.error('Google Calendar: помилка створення події', err);
+  }
 }
 
 module.exports = { handleClientConfirmed };
