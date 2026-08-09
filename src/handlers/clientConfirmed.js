@@ -41,15 +41,29 @@ async function handleClientConfirmed(callbackQuery) {
 
   await telegramApi.answerCallbackQuery(callbackQueryId, 'Клієнта підтверджено, бронювання створено ✅');
 
-  // Google Calendar — не критична дія. Якщо впаде, CRM і кнопка вже відпрацювали.
+  // ТИМЧАСОВА ІНСТРУМЕНТАЦІЯ: пишемо позначку прогресу на кожному кроці,
+  // щоб точно побачити, на якому саме кроці все зупиняється.
+  const markProgress = async (step) => {
+    try {
+      await updateBookingCalendarError(booking.id, `[progress] ${step}`);
+    } catch (e) {
+      // якщо навіть це падає — booking.id точно валідний? залишаємо мовчки,
+      // побачимо по відсутності прогресу в базі.
+    }
+  };
+
+  await markProgress('1: старт блоку Google Calendar');
+
   try {
+    await markProgress('2: перед parseDatesRange');
     const range = parseDatesRange(application.dates);
 
     if (!range) {
-      console.error('Google Calendar: не вдалося розпізнати дати', application.id, application.dates);
       await updateBookingCalendarError(booking.id, `Не вдалося розпізнати дати: "${application.dates}"`);
       return;
     }
+
+    await markProgress('3: дати розпізнано, перед createCalendarEvent');
 
     const { dogName, breed } = parseDogInfo(application.dog_info);
 
@@ -69,15 +83,23 @@ async function handleClientConfirmed(callbackQuery) {
       endDate: range.endDate,
     });
 
+    await markProgress('4: createCalendarEvent завершився без throw, event=' + JSON.stringify(event ? event.id : event));
+
     if (event && event.id) {
       await updateBookingGoogleEventId(booking.id, event.id);
+      await updateBookingCalendarError(booking.id, null);
+    } else {
+      await updateBookingCalendarError(booking.id, '5: подія не створена, event порожній: ' + JSON.stringify(event));
     }
   } catch (err) {
-    console.error('Google Calendar: помилка створення події', err);
+    const errText = (err && (err.stack || err.message)) ? String(err.stack || err.message) : String(err);
     try {
-      await updateBookingCalendarError(booking.id, String(err.message || err));
+      await updateBookingCalendarError(booking.id, `CATCH: ${errText}`.slice(0, 1900));
     } catch (innerErr) {
-      console.error('Не вдалося записати помилку в bookings', innerErr);
+      // Останній шанс — пишемо хоч щось мінімальне
+      try {
+        await updateBookingCalendarError(booking.id, 'CATCH сталася, але запис детальної помилки теж впав');
+      } catch (e2) {}
     }
   }
 }
