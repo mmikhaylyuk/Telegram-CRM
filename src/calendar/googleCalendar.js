@@ -43,8 +43,14 @@ async function createCalendarEvent({ summary, description, startDate, endDate })
   const { GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_CALENDAR_ID } = process.env;
 
   if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY || !GOOGLE_CALENDAR_ID) {
-    console.error('Google Calendar: не задані environment variables, подію не створено');
-    return null;
+    // Кидаємо помилку замість тихого return null, щоб causeConfirmed.js
+    // зловив це в catch і записав діагностику в Supabase.
+    throw new Error(
+      'Google Calendar: не задані environment variables. ' +
+      `GOOGLE_CLIENT_EMAIL=${GOOGLE_CLIENT_EMAIL ? 'є' : 'ВІДСУТНЯ'}, ` +
+      `GOOGLE_PRIVATE_KEY=${GOOGLE_PRIVATE_KEY ? 'є' : 'ВІДСУТНЯ'}, ` +
+      `GOOGLE_CALENDAR_ID=${GOOGLE_CALENDAR_ID ? 'є' : 'ВІДСУТНЯ'}`
+    );
   }
 
   const accessToken = await getAccessToken();
