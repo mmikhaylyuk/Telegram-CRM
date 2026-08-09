@@ -5,33 +5,41 @@ function fmtDate(d) {
   return d ? new Date(d).toLocaleDateString('uk-UA') : '—';
 }
 
+function esc(text) {
+  if (text === null || text === undefined) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function formatClientCard({ client, applications, bookings }) {
-  let text = `👤 *${client.name || 'Без імені'}*\n`;
-  text += `📞 ${client.phone}\n`;
+  let text = `👤 <b>${esc(client.name) || 'Без імені'}</b>\n`;
+  text += `📞 ${esc(client.phone)}\n`;
   text += `📅 Клієнт з: ${fmtDate(client.created_at)}\n`;
 
   // Підтверджені бронювання
-  text += `\n📋 *Підтверджені бронювання (${bookings.length}):*`;
+  text += `\n📋 <b>Підтверджені бронювання (${bookings.length}):</b>`;
   if (bookings.length === 0) {
-    text += '\n_немає_';
+    text += '\n<i>немає</i>';
   } else {
     bookings.forEach((b, i) => {
-      text += `\n${i + 1}. 📅 ${b.dates || 'дати не вказано'} — статус: ${b.status}`;
-      text += `\n   _створено: ${fmtDate(b.created_at)}_`;
+      text += `\n${i + 1}. 📅 ${esc(b.dates) || 'дати не вказано'} — статус: ${esc(b.status)}`;
+      text += `\n   <i>створено: ${fmtDate(b.created_at)}</i>`;
     });
   }
 
   // Всі заявки (історія, включно з відхиленими)
-  text += `\n\n📨 *Усі заявки (${applications.length}):*`;
+  text += `\n\n📨 <b>Усі заявки (${applications.length}):</b>`;
   if (applications.length === 0) {
-    text += '\n_немає_';
+    text += '\n<i>немає</i>';
   } else {
     applications.forEach((a, i) => {
-      text += `\n\n${i + 1}. Статус: *${a.status}* (${fmtDate(a.created_at)})`;
-      if (a.dates) text += `\n   📅 Дати: ${a.dates}`;
-      if (a.dog_info) text += `\n   🐶 Собака: ${a.dog_info}`;
-      if (a.size) text += `\n   📏 Розмір: ${a.size}`;
-      if (a.comment) text += `\n   💬 Коментар: ${a.comment}`;
+      text += `\n\n${i + 1}. Статус: <b>${esc(a.status)}</b> (${fmtDate(a.created_at)})`;
+      if (a.dates) text += `\n   📅 Дати: ${esc(a.dates)}`;
+      if (a.dog_info) text += `\n   🐶 Собака: ${esc(a.dog_info)}`;
+      if (a.size) text += `\n   📏 Розмір: ${esc(a.size)}`;
+      if (a.comment) text += `\n   💬 Коментар: ${esc(a.comment)}`;
     });
   }
 
@@ -57,7 +65,7 @@ async function handleClientLookup(chatId, messageText) {
       return true;
     }
 
-    await sendMessage(chatId, formatClientCard(result), { parse_mode: 'Markdown' });
+    await sendMessage(chatId, formatClientCard(result));
   } catch (err) {
     console.error('Client lookup error:', err);
     await sendMessage(chatId, '⚠️ Помилка при пошуку клієнта. Спробуй ще раз.');
