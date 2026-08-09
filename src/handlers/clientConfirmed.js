@@ -2,7 +2,7 @@ const telegramApi = require('../telegram/api');
 const { statusKeyboard } = require('../telegram/keyboards');
 const { getApplicationByMessage, updateApplicationStatus } = require('../db/applications');
 const { findOrCreateClient } = require('../db/clients');
-const { createBooking, updateBookingGoogleEventId } = require('../db/bookings');
+const { createBooking, updateBookingGoogleEventId, updateBookingCalendarError } = require('../db/bookings');
 const { parseDatesRange, parseDogInfo } = require('../telegram/parseApplication');
 const { createCalendarEvent } = require('../calendar/googleCalendar');
 
@@ -73,6 +73,11 @@ async function handleClientConfirmed(callbackQuery) {
     }
   } catch (err) {
     console.error('Google Calendar: помилка створення події', err);
+    try {
+      await updateBookingCalendarError(booking.id, String(err.message || err));
+    } catch (innerErr) {
+      console.error('Не вдалося записати помилку в bookings', innerErr);
+    }
   }
 }
 
