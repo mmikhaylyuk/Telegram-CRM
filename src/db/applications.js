@@ -37,4 +37,11 @@ async function updateApplicationStatus(id, status, extra = {}) {
   return data;
 }
 
-module.exports = { createApplication, getApplicationByMessage, updateApplicationStatus };
+async function getApplicationById(id) {
+  const { data, error } = await supabase.from('applications').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+module.exports = { createApplication, getApplicationByMessage, updateApplicationStatus, getApplicationById };
+
