@@ -65,7 +65,12 @@ async function handleClientLookup(chatId, messageText) {
       return true;
     }
 
-    await sendMessage(chatId, formatClientCard(result));
+    const { editClientButton } = require('../telegram/keyboards');
+    await require('../telegram/api').sendMessage(
+      chatId,
+      formatClientCard(result),
+      editClientButton(result.client.phone)
+    );
   } catch (err) {
     console.error('Client lookup error:', err);
     await sendMessage(chatId, '⚠️ Помилка при пошуку клієнта. Спробуй ще раз.');
@@ -73,5 +78,6 @@ async function handleClientLookup(chatId, messageText) {
 
   return true;
 }
+
 
 module.exports = { handleClientLookup };
