@@ -33,6 +33,7 @@ function editMenuKeyboard(hasBooking) {
       { text: '📅 Дата виїзду', callback_data: 'ef:dateend' },
     ]);
     rows.push([{ text: '💬 Коментар', callback_data: 'ef:comment' }]);
+    rows.push([{ text: '🗑️ Видалити бронювання', callback_data: 'ef:delete' }]);
   }
 
   rows.push([{ text: '💾 Завершити', callback_data: 'ef:done' }]);
@@ -40,6 +41,7 @@ function editMenuKeyboard(hasBooking) {
 
   return { inline_keyboard: rows };
 }
+
 
 function bookingSelectKeyboard(bookings) {
   const rows = bookings.map((b, i) => [{ text: `${i + 1}️⃣ ${b.dates || 'без дат'}`, callback_data: `eb:${b.id}` }]);
