@@ -20,52 +20,30 @@ async function handleClientConfirmed(callbackQuery) {
     return;
   }
 
-  const client = await findOrCreateClient({
-    phone: application.phone,
-    name: application.name,
-  });
+  const client = await findOrCreateClient({ phone: application.phone, name: application.name });
+  const { dogName, breed } = parseDogInfo(application.dog_info);
 
   const booking = await createBooking({
     clientId: client.id,
     applicationId: application.id,
     dates: application.dates,
+    dogName,
+    dogBreed: breed,
+    size: application.size,
+    comment: application.comment,
   });
 
   await updateApplicationStatus(application.id, 'confirmed', { client_id: client.id });
 
-  await telegramApi.editMessageReplyMarkup(
-    message.chat.id,
-    message.message_id,
-    statusKeyboard('🟢 Погоджено')
-  );
-
+  await telegramApi.editMessageReplyMarkup(message.chat.id, message.message_id, statusKeyboard('🟢 Погоджено'));
   await telegramApi.answerCallbackQuery(callbackQueryId, 'Клієнта підтверджено, бронювання створено ✅');
 
-  // ТИМЧАСОВА ІНСТРУМЕНТАЦІЯ: пишемо позначку прогресу на кожному кроці,
-  // щоб точно побачити, на якому саме кроці все зупиняється.
-  const markProgress = async (step) => {
-    try {
-      await updateBookingCalendarError(booking.id, `[progress] ${step}`);
-    } catch (e) {
-      // якщо навіть це падає — booking.id точно валідний? залишаємо мовчки,
-      // побачимо по відсутності прогресу в базі.
-    }
-  };
-
-  await markProgress('1: старт блоку Google Calendar');
-
   try {
-    await markProgress('2: перед parseDatesRange');
     const range = parseDatesRange(application.dates);
-
     if (!range) {
       await updateBookingCalendarError(booking.id, `Не вдалося розпізнати дати: "${application.dates}"`);
       return;
     }
-
-    await markProgress('3: дати розпізнано, перед createCalendarEvent');
-
-    const { dogName, breed } = parseDogInfo(application.dog_info);
 
     const summary = `🐶 ${dogName || application.dog_info || 'Собака'}${breed ? ' ' + breed : ''} — ${application.name || 'Клієнт'}`;
     const description =
@@ -83,25 +61,18 @@ async function handleClientConfirmed(callbackQuery) {
       endDate: range.endDate,
     });
 
-    await markProgress('4: createCalendarEvent завершився без throw, event=' + JSON.stringify(event ? event.id : event));
-
     if (event && event.id) {
       await updateBookingGoogleEventId(booking.id, event.id);
       await updateBookingCalendarError(booking.id, null);
     } else {
-      await updateBookingCalendarError(booking.id, '5: подія не створена, event порожній: ' + JSON.stringify(event));
+      await updateBookingCalendarError(booking.id, 'Подія не створена, порожня відповідь від Google Calendar');
     }
   } catch (err) {
-    const errText = (err && (err.stack || err.message)) ? String(err.stack || err.message) : String(err);
-    try {
-      await updateBookingCalendarError(booking.id, `CATCH: ${errText}`.slice(0, 1900));
-    } catch (innerErr) {
-      // Останній шанс — пишемо хоч щось мінімальне
-      try {
-        await updateBookingCalendarError(booking.id, 'CATCH сталася, але запис детальної помилки теж впав');
-      } catch (e2) {}
-    }
+    const errText = err && (err.stack || err.message) ? String(err.stack || err.message) : String(err);
+    console.error('Google Calendar помилка при підтвердженні:', errText);
+    await updateBookingCalendarError(booking.id, errText.slice(0, 1900));
   }
 }
 
 module.exports = { handleClientConfirmed };
+
