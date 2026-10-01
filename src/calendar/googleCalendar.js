@@ -123,5 +123,30 @@ async function updateCalendarEvent(eventId, { summary, description, startDate, e
   return data;
 }
 
-module.exports = { createCalendarEvent, updateCalendarEvent };
+async function deleteCalendarEvent(eventId) {
+  const { GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_CALENDAR_ID } = process.env;
+
+  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY || !GOOGLE_CALENDAR_ID) {
+    throw new Error('Google Calendar: не задані environment variables.');
+  }
+
+  const accessToken = await getAccessToken();
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  // Google повертає 204 без тіла при успіху; 410 — подію вже видалено раніше (теж вважаємо успіхом).
+  if (!res.ok && res.status !== 410) {
+    const text = await res.text();
+    throw new Error('Google Calendar API помилка (delete): ' + text);
+  }
+}
+
+module.exports = { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent };
+
 
