@@ -85,4 +85,43 @@ async function createCalendarEvent({ summary, description, startDate, endDate })
   return data;
 }
 
-module.exports = { createCalendarEvent };
+async function updateCalendarEvent(eventId, { summary, description, startDate, endDate }) {
+  const { GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_CALENDAR_ID } = process.env;
+
+  if (!GOOGLE_CLIENT_EMAIL || !GOOGLE_PRIVATE_KEY || !GOOGLE_CALENDAR_ID) {
+    throw new Error('Google Calendar: не задані environment variables.');
+  }
+
+  const accessToken = await getAccessToken();
+
+  const body = { summary, description };
+
+  if (startDate && endDate) {
+    const endExclusive = new Date(endDate);
+    endExclusive.setDate(endExclusive.getDate() + 1);
+    body.start = { date: startDate };
+    body.end = { date: endExclusive.toISOString().slice(0, 10) };
+  }
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events/${encodeURIComponent(eventId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error('Google Calendar API помилка (update): ' + JSON.stringify(data));
+  }
+
+  return data;
+}
+
+module.exports = { createCalendarEvent, updateCalendarEvent };
+
