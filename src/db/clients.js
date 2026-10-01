@@ -92,10 +92,44 @@ async function getClientWithHistory(rawPhone) {
   return { client, applications: applications || [], bookings: bookings || [] };
 }
 
+// Пошук клієнта за "ядром" номера — перевіряє всі 3 можливі формати запису.
+async function findClientByPhoneCore(core) {
+  const variants = phoneVariants(core);
+  const { data, error } = await supabase.from('clients').select('*').in('phone', variants).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function updateClientName(clientId, name) {
+  const { data, error } = await supabase
+    .from('clients')
+    .update({ name, updated_at: new Date().toISOString() })
+    .eq('id', clientId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function updateClientPhone(clientId, phone) {
+  const { data, error } = await supabase
+    .from('clients')
+    .update({ phone, updated_at: new Date().toISOString() })
+    .eq('id', clientId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 module.exports = {
   findClientByPhone,
   createClient,
   findOrCreateClient,
   getClientWithHistory,
   getCorePhone,
+  findClientByPhoneCore,
+  updateClientName,
+  updateClientPhone,
 };
+
