@@ -376,13 +376,15 @@ async function applyEdit(chatId, session) {
       const { start, end } = splitDatesText(booking.dates);
 
       const summary = `🐶 ${booking.dog_name || 'Собака'}${booking.dog_breed ? ' ' + booking.dog_breed : ''} — ${client.name || 'Клієнт'}`;
-      const description =
+            const description =
         `👤 Клієнт: ${client.name || '—'}\n` +
         `📞 Телефон: ${client.phone || '—'}\n` +
         `🐶 Собака: ${booking.dog_name || '—'}\n` +
         `🐕 Порода: ${booking.dog_breed || '—'}\n` +
+        `📏 Розмір: ${booking.size || '—'}\n` +
         `📅 Бронювання: ${booking.dates || '—'}\n` +
         (booking.comment ? `💬 Коментар: ${booking.comment}` : '');
+
 
       try {
         const toISO = (ddmmyyyy) => {
