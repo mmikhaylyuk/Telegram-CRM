@@ -46,13 +46,15 @@ async function handleClientConfirmed(callbackQuery) {
     }
 
     const summary = `🐶 ${dogName || application.dog_info || 'Собака'}${breed ? ' ' + breed : ''} — ${application.name || 'Клієнт'}`;
-    const description =
+        const description =
       `👤 Клієнт: ${application.name || '—'}\n` +
       `📞 Телефон: ${application.phone || '—'}\n` +
       `🐶 Собака: ${dogName || '—'}\n` +
       `🐕 Порода: ${breed || '—'}\n` +
+      `📏 Розмір: ${application.size || '—'}\n` +
       `📅 Бронювання: ${application.dates || '—'}\n` +
       (application.comment ? `💬 Коментар: ${application.comment}` : '');
+
 
     const event = await createCalendarEvent({
       summary,
