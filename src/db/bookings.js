@@ -69,6 +69,11 @@ async function updateBookingCalendarError(bookingId, errorText) {
   return data;
 }
 
+async function deleteBooking(bookingId) {
+  const { error } = await supabase.from('bookings').delete().eq('id', bookingId);
+  if (error) throw error;
+}
+
 module.exports = {
   createBooking,
   getBookingById,
@@ -76,4 +81,5 @@ module.exports = {
   updateBookingFields,
   updateBookingGoogleEventId,
   updateBookingCalendarError,
+  deleteBooking,
 };
