@@ -4,6 +4,7 @@ const {
   bookingSelectKeyboard,
   fieldPromptKeyboard,
   confirmKeyboard,
+  statusKeyboard,
 } = require('../telegram/keyboards');
 const { getSession, startSession, updateSession, clearSession } = require('../db/editSessions');
 const {
@@ -12,8 +13,9 @@ const {
   updateClientName,
   updateClientPhone,
 } = require('../db/clients');
-const { getBookingsByClient, updateBookingFields, getBookingById } = require('../db/bookings');
-const { updateCalendarEvent } = require('../calendar/googleCalendar');
+const { getBookingsByClient, updateBookingFields, getBookingById, deleteBooking } = require('../db/bookings');
+const { updateCalendarEvent, deleteCalendarEvent } = require('../calendar/googleCalendar');
+const { updateApplicationStatus, getApplicationById } = require('../db/applications');
 
 const FIELD_LABELS = {
   name: "ім'я клієнта",
@@ -254,6 +256,24 @@ async function handleEditCallback(callbackQuery) {
       return;
     }
 
+    if (field === 'delete') {
+      if (!session.booking_id) {
+        await telegramApi.answerCallbackQuery(callbackQueryId, 'У клієнта немає бронювання для видалення.', true);
+        return;
+      }
+      const booking = await getBookingById(session.booking_id);
+      await updateSession(chatId, { field: 'delete_booking', pending_value: 'confirm', step: 'awaiting_confirm' });
+      await telegramApi.answerCallbackQuery(callbackQueryId);
+      await telegramApi.sendMessage(
+        chatId,
+        `Видалити бронювання ${esc(booking.dates) || ''}?\n\n` +
+          `Буде видалено:\n• Подію з Google Calendar (якщо була)\n• Запис бронювання\n\n` +
+          `Клієнт залишиться в базі. Заявка отримає статус «Відмовився».`,
+        confirmKeyboard()
+      );
+      return;
+    }
+
     const bookingOnlyFields = ['dogname', 'breed', 'size', 'datestart', 'dateend', 'comment'];
     if (bookingOnlyFields.includes(field) && !session.booking_id) {
       await telegramApi.answerCallbackQuery(callbackQueryId, 'У клієнта немає бронювання для редагування.', true);
@@ -289,6 +309,11 @@ async function handleEditCallback(callbackQuery) {
 // ---------- Застосування підтвердженої зміни ----------
 
 async function applyEdit(chatId, session) {
+  if (session.field === 'delete_booking') {
+    await handleDeleteBooking(chatId, session);
+    return;
+  }
+
   const oldValue = await getCurrentFieldValue(session);
   const newValue = session.pending_value;
   const label = FIELD_LABELS[session.field] || session.field;
@@ -384,6 +409,48 @@ async function applyEdit(chatId, session) {
   await rerenderMenu(chatId, session);
 }
 
+// ---------- Видалення бронювання ----------
+
+async function handleDeleteBooking(chatId, session) {
+  const booking = await getBookingById(session.booking_id);
+  let calendarNote = '';
+
+  if (booking.google_event_id) {
+    try {
+      await deleteCalendarEvent(booking.google_event_id);
+      calendarNote = '\n📅 Google Calendar: видалено';
+    } catch (err) {
+      console.error('Google Calendar delete error:', err && (err.stack || err.message || err));
+      calendarNote = '\n⚠️ Подію в Google Calendar не вдалося видалити (видаліть вручну за потреби).';
+    }
+  } else {
+    calendarNote = '\n📅 Google Calendar: подія не була створена';
+  }
+
+  await deleteBooking(booking.id);
+
+  if (booking.application_id) {
+    try {
+      await updateApplicationStatus(booking.application_id, 'declined');
+      const application = await getApplicationById(booking.application_id);
+      if (application && application.telegram_chat_id && application.telegram_message_id) {
+        await telegramApi.editMessageReplyMarkup(
+          application.telegram_chat_id,
+          application.telegram_message_id,
+          statusKeyboard('🔴 Відмовився')
+        );
+      }
+    } catch (err) {
+      console.error('Помилка оновлення статусу заявки після видалення бронювання:', err);
+    }
+  }
+
+  await telegramApi.sendMessage(chatId, `✅ Бронювання видалено.${calendarNote}\n📋 Статус заявки: Відмовився`);
+
+  await updateSession(chatId, { booking_id: null, field: null, pending_value: null, step: 'menu' });
+  await rerenderMenu(chatId, { ...session, booking_id: null });
+}
+
 async function rerenderMenu(chatId, session) {
   const supabase = require('../db/supabaseClient');
   const { data: client } = await supabase.from('clients').select('*').eq('id', session.client_id).single();
@@ -392,3 +459,4 @@ async function rerenderMenu(chatId, session) {
 }
 
 module.exports = { handleEditCommand, handleEditTextInput, handleEditCallback, openEditForPhone };
+
