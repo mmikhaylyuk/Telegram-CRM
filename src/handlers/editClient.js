@@ -15,7 +15,13 @@ const {
 } = require('../db/clients');
 const { getBookingsByClient, updateBookingFields, getBookingById, deleteBooking } = require('../db/bookings');
 const { updateCalendarEvent, deleteCalendarEvent } = require('../calendar/googleCalendar');
-const { updateApplicationStatus, getApplicationById } = require('../db/applications');
+const {
+  updateApplicationStatus,
+  getApplicationById,
+  updateApplicationFields,
+  updateApplicationsByClient,
+} = require('../db/applications');
+
 
 const FIELD_LABELS = {
   name: "ім'я клієнта",
@@ -318,7 +324,7 @@ async function applyEdit(chatId, session) {
   const newValue = session.pending_value;
   const label = FIELD_LABELS[session.field] || session.field;
 
-  try {
+    try {
     if (session.field === 'phone') {
       const core = getCorePhone(newValue);
       const conflict = await findClientByPhoneCore(core);
@@ -329,8 +335,18 @@ async function applyEdit(chatId, session) {
         return;
       }
       await updateClientPhone(session.client_id, newValue);
+      try {
+        await updateApplicationsByClient(session.client_id, { phone: newValue });
+      } catch (err) {
+        console.error('Не вдалося синхронізувати телефон у заявках:', err);
+      }
     } else if (session.field === 'name') {
       await updateClientName(session.client_id, newValue);
+      try {
+        await updateApplicationsByClient(session.client_id, { name: newValue });
+      } catch (err) {
+        console.error('Не вдалося синхронізувати ім\'я у заявках:', err);
+      }
     } else {
       const booking = await getBookingById(session.booking_id);
       const patch = {};
@@ -353,9 +369,30 @@ async function applyEdit(chatId, session) {
         patch.dates = `${newStart}–${newEnd}`;
       }
 
-      await updateBookingFields(session.booking_id, patch);
+      const updatedBooking = await updateBookingFields(session.booking_id, patch);
+
+      // Дзеркалимо зміну в пов'язану заявку, щоб /client показувала
+      // актуальні дані, а не застиглий знімок на момент подачі заявки.
+      if (booking.application_id) {
+        const appPatch = {};
+        if (session.field === 'dogname' || session.field === 'breed') {
+          appPatch.dog_info = [updatedBooking.dog_name, updatedBooking.dog_breed].filter(Boolean).join(', ');
+        }
+        if (session.field === 'size') appPatch.size = newValue;
+        if (session.field === 'comment') appPatch.comment = newValue;
+        if (patch.dates) appPatch.dates = patch.dates;
+
+        if (Object.keys(appPatch).length > 0) {
+          try {
+            await updateApplicationFields(booking.application_id, appPatch);
+          } catch (err) {
+            console.error('Не вдалося синхронізувати заявку після редагування бронювання:', err);
+          }
+        }
+      }
     }
   } catch (err) {
+ 
     console.error('Помилка застосування редагування:', err);
     await telegramApi.sendMessage(chatId, '⚠️ Не вдалося зберегти зміну. Спробуйте ще раз.');
     await updateSession(chatId, { field: null, pending_value: null, step: 'menu' });
