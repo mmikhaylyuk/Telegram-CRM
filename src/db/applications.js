@@ -43,5 +43,31 @@ async function getApplicationById(id) {
   return data;
 }
 
-module.exports = { createApplication, getApplicationByMessage, updateApplicationStatus, getApplicationById };
+async function updateApplicationFields(id, fields) {
+  const { data, error } = await supabase
+    .from('applications')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function updateApplicationsByClient(clientId, fields) {
+  const { error } = await supabase
+    .from('applications')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('client_id', clientId);
+  if (error) throw error;
+}
+
+module.exports = {
+  createApplication,
+  getApplicationByMessage,
+  updateApplicationStatus,
+  getApplicationById,
+  updateApplicationFields,
+  updateApplicationsByClient,
+};
 
